@@ -1,4 +1,4 @@
-# langchain-rag
+# LangChain-RAG Study Notes
 
 RAG solution using LangChain
 
@@ -143,3 +143,133 @@ search_type可选 "similarity"|"mmr"|"similarity_score_threshold"
 | similarity                 |        Precise Matching         |    Fixed `k` |                ❌ | Factual question answering     |
 | mmr                        | Balance relevance and diversity |     Fixed`k` |                ✅ | Generate comprehansive reports |
 | similarity_score_threshold |        Quality filtering        |      Dynamic |                ❌ | High-precision filtering       |
+
+## Advanced Retriever Tools
+
+### MultipleQueryRetriever - Improve Recall for Fuzzy Queries
+
+Design Goal: Enhance retrieval quality through query expansion.
+
+Core idea:
+
+- Generate multiple related queries from the user's original input (e.g., paraphrasing, sub-question decomposition)
+- Merge and deduplicate results from all generated queries
+- Improve recall for fuzzy or vague queries
+- Relies on LLMs to generate high-quality expanded queries (requires careful management of generation costs)
+
+### MultiVectorRetriever
+
+Design Goal: Handle multiple vectors for a single document
+
+Core Idea:
+
+- Generate multiple sets of embedding vectors for the same document (e.g., full-tex vector, summary vector, keyword vector, etc.)
+- Improve recall by capturing the document from multiple perspectivs
+- Well-suited for documents with complex structures (e.g., technical papers with text, figures, and code)
+- **Higher storage cost** due to maintaining multiple vector sets per document
+
+## RetrievalQA
+
+Design Goal: Build an end-to-end Question Answering (QA) system
+
+Core Idea:
+
+- Pipeline the retriever with an LLM-baesd answer generation module
+- Supports multiple chain types, such as:
+  - **stuff** - feed all retrieved documents into the LLM at once
+  - **map_reduce** - generate intermediate answers and combine them
+  - **refine** - iteratively improve the answer using retrieved docs
+    This approach allows for flexible and scalable QA systems construction that can adapt to different ues cases and resource constraints
+
+```python
+# 构建一个高性能问答系统 from langchain.chains import RetrievalQA
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain.retrievers.multi_vector import MultiVectorRetriever
+# 1. 多向量存储 # 假设已生成不同视角的向量
+vectorstore = FAISS.from_texts(documents, embeddings)
+mv_retriever = MultiVectorRetriever(
+    vectorstore=vectorstore,
+    docstore=standard_docstore, # 存储原始文档 id_key="doc_id" # 关联不同向量与原始文档
+    )
+# 2. 多查询扩展
+mq_retriever = MultiQueryRetriever.from_llm(
+    retriever=mv_retriever,
+    llm=ChatOpenAI(temperature=0.3)
+    )
+# 3. 问答链
+qa = RetrievalQA.from_chain_type(
+    llm=ChatOpenAI(temperature=0),
+    chain_type="refine",
+    retriever=mq_retriever,
+    chain_type_kwargs={"verbose": True}
+    )
+# 执行
+answer = qa.run("请对比Transformer和CNN的优缺点")
+```
+
+## TimeWeightedVectorStoreRetriever - 时间加权检索
+
+Design Goal: Introduce a temporal decay factor into vector retrieval to prioritize more recent documents
+
+Core Idea:
+
+- Adjust similarity scores with a time-based weight, so that newer documents are ranked higher even if they have slightly lower semantic similarity
+  Typical Use Cases:
+- News/Social Media Platforms - Prioritize the latest articles or posts over older ones.
+- Technical Document Systems - Recommend the most recent versions of APIs or tools
+- Real-time Monitoring & Alerts - Ensure recent alert/events are surfaced with higher priority.
+  This approach is particularly effective in time-sensitive environments, where freshness of information is critical
+
+## Hybrid Retrieval
+
+### EnsembleRetriever - 集合检索器
+
+Scenarios
+
+- Combines semantic search (e.g., using vector similarity) with keyword-based search (e.g., tranditional lexical search).
+- Purposes: Leverages the strengths of both approaches:
+  - Keyword search: precise for exact terms
+  - Semantic search: useful for conceptual similarity
+- Typical Scenairo: Improves retrieval robustness in complex QA systems or enterprise search engines.
+
+### `ContextualCompressionRetriever` - Context-Aware Compression
+
+- Use Case: Filter low-relevance or noisy chunks after initial retrieval.
+- How it works: Applies an LLM to compress or refine the set of retrieved documents based on their contextual relevance to the query.
+- Typical Secnario:
+  - Post-processing step to enhance the signal-to-noise ratio
+  - Useful when initial retrieval yields too much irrelevant content (e.g., in long-form documents or noisy datasets)
+    These retrievers are especially useful when combining recall and precision, ensureing not just finding content but finding the right content.
+
+**Notes**
+
+- **Recall** - a metric used to evaluate the effectiveness of information retrieval systems, classification models, and search algorithms - especially in context like semantic search, recommendation systems, and machine learning.
+- Recall measures the ability of a system to find all relevant items from a dataset.
+
+```
+Recall = (Number of Relevant Items Retrieved) / (Total Number of Relevant Items)
+```
+
+- 📊 How It's Measured (Example):
+
+Imagine you have a system that’s supposed to retrieve all documents relevant to a user's query. There are 10 relevant documents in total. If the system retrieves 7 of those, then:
+
+```
+Recall = 7 / 10 = 0.7 (or 70%)
+```
+
+✅ High Recall Means:
+
+- The system returns most or all relevant documents
+- It prioritizes not missing anything important
+- However, it may also return irrelevant items (i.e., low precision)
+
+⚖️ Recall vs. Precision:
+
+- Recall: "How many of the relevant items did we find?"
+- Precision: "How many of the retrieved items were actually relevant?"
+
+In many systems (like search or recommendation), there's a trade-off:
+
+- High recall may bring more noise
+- High precision may miss some relevant content
