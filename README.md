@@ -73,8 +73,73 @@ print("查询嵌入：", query_embedding)
 # 查询嵌入：[-0.0036168822553008795, 0.0056339893490076065,...]
 ```
 
-## Vector Stores
+### Vector Stores
 
 ![alt text](resource\assets\image.png)
 
 A vector store stores embedded data and performs similarity search. LangChain supports a wide varity of embedding models and vector stores. For detailed information on the supported types, refer to [full list of langchain vectorstore integrations](https://python.langchain.com/docs/integrations/vectorstores/)
+
+### Other Scenarios for Vector Embedding Technology
+
+Vector Embedding and Storage go far beyond just Retrieval-Augmented Generation (RAG) systems - they have a wide range of applications across various domains. Some key use cases include:
+
+1. Semantic Search Systems - Enabling search based on the meaning of content, not just keyword matches.
+2. Recommendation System - Suggesting items based on similarity in content or user behavior
+3. Documents Clustering - Automatically organizing and categorizing large volumes of documents.
+4. Anomaly Detection - Identifying data points that deviate from normal patterns.
+5. Multimodel Systems - Bridging contents across text, images, audio, and other modalities.
+6. Content Deduplication - Detecting similar/duplicate content.
+7. Knowledge Graph - Buiding semantic connections among entities.
+8. Sentiment Analysis - Capturing emotional characteristics of text
+
+While RAG is a significant use case for vector embedding technology, its value extends much further - providing a foundation for any AI system that needs to understand semantic relationships within content.
+
+## Retrievers
+
+The Retrievers in LangChain is a runnable type, which provides a unified way to interact with different type of retriver systems, including vectorstores, graph databases and relational databases, for example
+
+```
+docs = retriever.invoke(query)
+```
+
+In LangChain, the search_type of `as_retriever()` method determines the retriever methods:
+
+```python
+retriever = vector_store.as_retriever(
+    search_type="similarity", # 可选 "similarity"|"mmr"|"similarity_score_threshold"
+    search_kwargs={
+         "k": 5, # 返回结果数量
+         "score_threshold": 0.7, # 仅当search_type="similarity_score_threshold"时有效
+         "filter": {"source": "重要文档.pdf"}, # 元数据过滤
+         "lambda_mult": 0.25 # 仅MMR搜索有效(控制多样性)
+         }
+    )
+search_kwargs： 搜索条件
+search_type可选 "similarity"|"mmr"|"similarity_score_threshold"
+```
+
+- **similarity**
+
+  - (default) Return directly the top k documents most similar to the query vector (based on cosine similarity or L2 distance)
+  - Results are strictly ranked by similarity
+  - Well-suited for scenarios requiring precise matching
+
+- **MMR** (Maximal Marginal Relevance)
+
+  - **Principle**: Add diversity control on top of simularity, helping avoid returning redundant results
+  - **Core Parameter**: `lambda_mult` in the range of (0,1) where 1 favors similarity (like standard similarity search) and 0 favors diversity
+  - Useful when retrieval results need to cover different subtopics
+  - Helps prevent returning overly similar or redundant documents
+
+- **similarity_score_threshold** (Similarity Search with a Score Cutoff)
+  - Only returns documents with similarity scores above a specified threshold.
+  - score_threshold: Similarity threshold (typically in the range of 0 to 1 for cosine similarity)
+  - k: Maximum number of documents to return (actual number may be fewer than k)
+  - Ideal for **quality-first scenarios**
+  - The nunber of results is not fixed (can return zero or more depending on threshold)
+
+| Type                       |         Core Objective          | Result Count | Diversity Control | Typical Use Case               |
+| -------------------------- | :-----------------------------: | -----------: | ----------------: | ------------------------------ |
+| similarity                 |        Precise Matching         |    Fixed `k` |                ❌ | Factual question answering     |
+| mmr                        | Balance relevance and diversity |     Fixed`k` |                ✅ | Generate comprehansive reports |
+| similarity_score_threshold |        Quality filtering        |      Dynamic |                ❌ | High-precision filtering       |
