@@ -273,3 +273,48 @@ In many systems (like search or recommendation), there's a trade-off:
 
 - High recall may bring more noise
 - High precision may miss some relevant content
+
+## About Enterprise RAG
+The content above serves as the foundational knowledge of RAG, but if you want to build an enterprise-leveal RAG system - especially something like a Product Information Assistant, it is far from sufficient to build the Q&A style interactions based on a knowledge base. While the overall flow remains the same, each component requires its own specialized handling. In real-world usage, the implentation needs to be dailored to fit specific business documents, user cases, and accuracy requirements.
+
+上面的内容是作为RAG的基础知识，但是想做企业级别的RAG,尤其是要做 产品资讯助手 这种基于知识库和用户进行问答式的交流还远远不够。总流程没有区别，但是每一块都有自己特殊处理地方：
+我通过读取一些企业级RAG的文章，大致整理一下这种流程，但是真实使用时候，还是需要根据我们自己业务文档，使用的场景和对于回答准确率要求的情况来酌情处理。
+4.1 文本加载和文本清洗
+企业级知识库构建在 预处理 这部分的处理是重头戏。因为我们文档是多样性的，有不同类型文件，文件里面还有图片，图片里面内容有时候也是需要识别的。另外文档基本都是产品或者运营来写，里面有很多口头语的表述，过多不合适的分段/语气词，多余的空格，这些问题都会影响最后分割的效果。一般文本清洗需要做一下几步：
+•去除杂音：去掉文本中的无关信息或者噪声，比如多余的空格、HTML 标签和特殊符号等。
+•标准化格式：将文本转换为统一的格式，如将所有字符转为小写，或者统一日期、数字的表示。
+•处理标点符号和分词：处理或移除不必要的标点符号，并对文本进行适当的分词处理。
+•去除停用词：移除那些对语义没有特别贡献的常用词汇，例如“的”、“在”、“而”等。
+•拼写纠错：纠正文本中的拼写错误，以确保文本的准确性和一致性。
+•词干提取和词形还原：将词语简化为词干或者词根形式，以减少词汇的多样性并保持语义的一致性。
+4.2 文本分割
+除了采取上面的基本分割方式，然后还可以结合层次分割优化不同粒度的索引结构，提高检索匹配度。
+补充一下多级索引结构：
+![alt text](image.png)
+from langchain.text_splitter import MarkdownHeaderTextSplitter headers = [ ("#", "Header 1"), ("##", "Header 2"), ("###", "Header 3") ] splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers) chunks = splitter.split_text(markdown_doc)
+4.3 向量存储
+在企业级存储一般数据量都很大，用内存缓存是不现实的，基本都是需要存在数据库中。至于用什么数据库，怎么存也根据文本类型有变化，例如：
+•向量数据库：向量存储库非常适合存储文本、图像、音频等非结构化数据，并根据语义相似性搜索数据。
+•图数据库：图数据库以节点和边的形式存储数据。它适用于存储结构化数据，如表格、文档等，并使用数据之间的关系搜索数据。
+4.4 向量检索
+在很多情况下，用户的问题可能以口语化形式呈现，语义模糊，或包含过多无关内容。将这些模糊的问题进行向量化后，召回的内容可能无法准确反映用户的真实意图。此外，召回的内容对用户提问的措辞也非常敏感，不同的提问方式可能导致不同的检索结果。因此，如果计算能力和响应时间允许，可以先利用LLM对用户的原始提问进行改写和扩展，然后再进行相关内容的召回。
+4.5 内容缓存
+在一些特定场景中，对于用户的问答检索需要做缓存处理，以提高响应速度。可以以用户id，时间顺序，信息权重作为标识进行存储。
+还有一些关于将检索信息和prompt结合时候，如何处理等其他流程
+
+
+
+
+
+from langchain.text_splitter import MarkdownHeaderTextSplitter headers = [ ("#", "Header 1"), ("##", "Header 2"), ("###", "Header 3") ] splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers) chunks = splitter.split_text(markdown_doc)
+4.3 向量存储
+在企业级存储一般数据量都很大，用内存缓存是不现实的，基本都是需要存在数据库中。至于用什么数据库，怎么存也根据文本类型有变化，例如：
+•向量数据库：向量存储库非常适合存储文本、图像、音频等非结构化数据，并根据语义相似性搜索数据。
+•图数据库：图数据库以节点和边的形式存储数据。它适用于存储结构化数据，如表格、文档等，并使用数据之间的关系搜索数据。
+4.4 向量检索
+在很多情况下，用户的问题可能以口语化形式呈现，语义模糊，或包含过多无关内容。将这些模糊的问题进行向量化后，召回的内容可能无法准确反映用户的真实意图。此外，召回的内容对用户提问的措辞也非常敏感，不同的提问方式可能导致不同的检索结果。因此，如果计算能力和响应时间允许，可以先利用LLM对用户的原始提问进行改写和扩展，然后再进行相关内容的召回。
+4.5 内容缓存
+在一些特定场景中，对于用户的问答检索需要做缓存处理，以提高响应速度。可以以用户id，时间顺序，信息权重作为标识进行存储。
+还有一些关于将检索信息和prompt结合时候，如何处理等其他流程，这里不多讲，讲多了头疼。。。
+总结
+本文介绍了RAG的基础过程，在langchain框架下如何使用，再到提供两个个例子进行了代码实践，最后又简要介绍了企业级别RAG构建的内容。最后希望大家能有所收获。
